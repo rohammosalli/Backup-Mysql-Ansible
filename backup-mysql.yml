@@ -1,0 +1,27 @@
+---
+- hosts: '{{ host }}'
+  vars:
+      exclude_db:
+          - Database
+          - information_schema
+          - performance_schema
+          - mysql
+  tasks:
+    - name: get db names
+      shell: 'mysql -u {{ user }} -p{{ pass }} -h{{ db_host }} --port={{ port | default("3306") }} -e "show databases;" '
+      register: dblist
+    - name: Install the Python MySQLB module
+      pip: name=MySQL-python
+    - name: output datbase list
+      debug:
+        msg: '{{ dblist }}'
+    - name: backup databases
+      mysql_db:
+        state: dump
+        name: "{{ item }}"
+        target: "{{ dump_dir }}/{{ item }}-{{lookup('pipe','date +%Y%m%d%H%M%S')}}.sql"
+        login_user: '{{ user }}'
+        login_password: "{{ pass }}"
+        login_port: '{{ port | default("3306") }}'
+        login_host: '{{ db_host }}'
+      with_items: "{{ dblist.stdout_lines | difference(exclude_db) }}"
